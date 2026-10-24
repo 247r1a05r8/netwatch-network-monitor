@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>NetWatch - Real-Time Network Monitoring &amp; Troubleshooting System</title>
+<link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+<div class="bg-orb orb1"></div><div class="bg-orb orb2"></div>
+<header class="topbar glass">
+  <div class="brand">
+    <div class="logo">&#9672;</div>
+    <div>
+      <h1>NetWatch</h1>
+      <p class="subtitle">Real-Time Network Monitoring &amp; Troubleshooting System</p>
+    </div>
+  </div>
+  <div class="status-box" id="statusBox" data-state="checking">
+    <span class="status-label">NETWORK STATUS</span>
+    <span class="status-value"><span class="dot"></span><span id="statusText">CHECKING</span></span>
+  </div>
+</header>
+
+<nav class="tabs glass" id="tabs">
+  <button class="tab active" data-tab="dashboard">Dashboard</button>
+  <button class="tab" data-tab="troubleshooter">Network Troubleshooter</button>
+  <button class="tab" data-tab="info">Network Information</button>
+  <button class="tab" data-tab="config">Configuration</button>
+</nav>
+<div id="banner" class="banner hidden"></div>
+
+<main>
+<!-- ================= DASHBOARD ================= -->
+<section id="tab-dashboard" class="tabpanel active">
+  <div class="cards">
+    <div class="card glass" id="cardInternet"><h3>Internet</h3><div class="big" id="internetState">-</div><div class="sub" id="internetSub">-</div></div>
+    <div class="card glass" id="cardGateway"><h3>Gateway</h3><div class="big" id="gatewayState">-</div><div class="sub" id="gatewaySub">-</div></div>
+    <div class="card glass" id="cardDns"><h3>DNS</h3><div class="big" id="dnsState">-</div><div class="sub" id="dnsSub">-</div></div>
+    <div class="card glass" id="cardLoss"><h3>Packet Loss</h3><div class="big" id="lossValue">-</div><div class="sub" id="lossSub">last ping cycle</div></div>
+    <div class="card glass"><h3>Interface</h3><div class="big small" id="ifaceName">-</div><div class="sub" id="ifaceSub">-</div></div>
+    <div class="card glass"><h3>Local IP</h3><div class="big small" id="localIp">-</div><div class="sub" id="localIpSub">IPv4</div></div>
+    <div class="card glass"><h3>Download</h3><div class="big" id="downRate">-</div><div class="sub">traffic on selected interface</div></div>
+    <div class="card glass"><h3>Upload</h3><div class="big" id="upRate">-</div><div class="sub">traffic on selected interface</div></div>
+  </div>
+
+  <div class="grid2">
+    <div class="glass panel">
+      <div class="panel-head"><h2>Live Latency</h2>
+        <select id="windowSelect" aria-label="History window">
+          <option value="1">Last 1 minute</option><option value="5" selected>Last 5 minutes</option><option value="15">Last 15 minutes</option>
+        </select></div>
+      <canvas id="latencyChart" height="220"></canvas>
+      <div class="stats" id="latStats"></div>
+    </div>
+    <div class="glass panel">
+      <div class="panel-head"><h2>Network Health</h2></div>
+      <ul class="health" id="healthList"></ul>
+      <p class="note" id="healthReasons"></p>
+      <p class="note">Rules: HEALTHY = gateway, internet and DNS work and loss/latency are within thresholds. DEGRADED = one or more tests failing. OFFLINE = internet and gateway both unreachable.</p>
+    </div>
+  </div>
+
+  <div class="grid2">
+    <div class="glass panel">
+      <div class="panel-head"><h2>Bandwidth (Mbps)</h2></div>
+      <canvas id="bwChart" height="200"></canvas>
+      <p class="note">Measured traffic through the selected interface (change in byte counters / time). This is not the maximum internet speed.</p>
+    </div>
+    <div class="glass panel">
+      <div class="panel-head"><h2>Packet Loss History (%)</h2></div>
+      <canvas id="lossChart" height="200"></canvas>
+      <p class="note">Each point is one ping cycle (a few pings to the internet test host).</p>
+    </div>
+  </div>
+
+  <div class="grid2">
+    <div class="glass panel"><div class="panel-head"><h2>Alerts</h2></div><ul class="alerts" id="alertList"></ul></div>
+    <div class="glass panel"><div class="panel-head"><h2>Service Monitoring</h2></div><div id="serviceList"></div></div>
+  </div>
+
+  <div class="grid2">
+    <div class="glass panel"><div class="panel-head"><h2>HTTP Monitoring</h2></div><div id="urlList"></div></div>
+    <div class="glass panel"><div class="panel-head"><h2>Interface Statistics</h2>
+      <select id="ifaceSelect" aria-label="Select interface"></select></div>
+      <div id="ifaceStats" class="kv"></div></div>
+  </div>
+
+  <div class="glass panel">
+    <div class="panel-head"><h2>Event Log <span class="muted">(last 100)</span></h2><button class="btn ghost" id="clearLogs">Clear Logs</button></div>
+    <ul class="events" id="eventList"></ul>
+  </div>
+</section>
+
+<!-- ================= TROUBLESHOOTER ================= -->
+<section id="tab-troubleshooter" class="tabpanel">
+  <div class="glass panel">
+    <div class="panel-head"><h2>Network Troubleshooter</h2><button class="btn" id="runDiag">Run Network Diagnostics</button></div>
+    <p class="note">Runs safe tests in order: local interface, default gateway, gateway ping, DNS, internet and configured services. It reports a <em>possible cause</em> and suggested checks. It cannot find every network fault.</p>
+    <div id="diagResult" class="diag"><p class="muted">Press the button to run diagnostics.</p></div>
+  </div>
+</section>
+
+<!-- ================= INFO ================= -->
+<section id="tab-info" class="tabpanel">
+  <div class="glass panel"><div class="panel-head"><h2>Network Information</h2></div>
+    <div id="infoBox" class="kv"></div>
+    <h3 class="sect">Interfaces</h3>
+    <div class="table-wrap"><table id="infoIfaces"><thead><tr><th>Name</th><th>Status</th><th>IPv4</th><th>MAC</th></tr></thead><tbody></tbody></table></div>
+    <p class="note" id="infoNote"></p>
+  </div>
+</section>
+
+<!-- ================= CONFIG ================= -->
+<section id="tab-config" class="tabpanel">
+  <form id="configForm" class="glass panel" autocomplete="off">
+    <div class="panel-head"><h2>Configuration</h2><button class="btn" type="submit">Save Settings</button></div>
+    <div id="configMsg" class="msg hidden"></div>
+    <div class="form-grid">
+      <label>Gateway mode
+        <select id="cfgGatewayMode"><option value="auto">Auto Detect</option><option value="manual">Manual IP</option></select></label>
+      <label>Manual gateway IP <input id="cfgGatewayIp" placeholder="e.g. 192.168.1.1"></label>
+      <label>DNS test domain <input id="cfgDns" placeholder="example.com"></label>
+      <label>Internet ping host <input id="cfgPingHost" placeholder="1.1.1.1"></label>
+      <label>Internet check URL <input id="cfgHttp" placeholder="https://example.com"></label>
+      <label>High latency threshold (ms) <input id="cfgLat" type="number" min="1" max="10000"></label>
+      <label>Packet loss threshold (%) <input id="cfgLoss" type="number" min="0" max="100"></label>
+    </div>
+    <h3 class="sect">Monitored Services (TCP) <button type="button" class="btn ghost small" id="addSvc">+ Add</button></h3>
+    <p class="note">Only the host and port you enter are checked, one connection attempt each. NetWatch never scans ports.</p>
+    <div id="svcRows"></div>
+    <h3 class="sect">Monitored URLs <button type="button" class="btn ghost small" id="addUrl">+ Add</button></h3>
+    <div id="urlRows"></div>
+  </form>
+</section>
+</main>
+<footer class="foot">NetWatch - defensive monitoring of this computer and user-configured hosts only. Data is kept in memory.</footer>
+<script src="{{ url_for('static', filename='app.js') }}"></script>
+</body>
+</html>
